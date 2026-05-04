@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>НКС ЛР3 | Kotlin Architecture Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        #chat { height: 520px; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 12px; padding: 15px; }
+        .msg { padding: 10px 14px; margin: 10px 0; border-radius: 14px; max-width: 75%; white-space: pre-wrap; }
+        .user { background: #007aff; color: white; margin-left: auto; }
+        .bot { background: #e5e5ea; color: #111; margin-right: auto; }
+        form { display: flex; gap: 10px; margin-top: 15px; }
+        input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #aaa; font-size: 16px; }
+        button { padding: 12px 20px; border: 0; border-radius: 20px; background: #007aff; color: white; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #999; }
+        #status { color: #666; font-size: 14px; margin-top: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>🤖 ЛР3: чат по книге «Software Architecture with Kotlin»</h1>
+    <div id="chat"></div>
+    <form id="form">
+        <input id="input" placeholder="Введите вопрос по Kotlin / архитектуре ПО..." autocomplete="off" />
+        <button id="btn" type="submit">Отправить</button>
+    </form>
+    <div id="status">Готов к работе</div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const btn = document.getElementById('btn');
+        const statusEl = document.getElementById('status');
+        let history = [];
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = 'msg ' + role;
+            div.innerHTML = `<b>${role === 'user' ? 'Вы' : 'Модель'}:</b>\n${escapeHtml(text)}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = input.value.trim();
+            if (!message) return;
+            addMessage('user', message);
+            input.value = '';
+            btn.disabled = true;
+            statusEl.textContent = 'Модель генерирует ответ...';
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message, history})
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                addMessage('bot', data.response);
+                history.push({user: message, bot: data.response});
+                if (history.length > 5) history.shift();
+                statusEl.textContent = `Готово: ${data.latency.toFixed(2)} сек.; ${data.throughput.toFixed(2)} ток/сек`;
+            } catch (err) {
+                addMessage('bot', 'Ошибка: ' + err.message);
+                statusEl.textContent = 'Ошибка';
+            } finally {
+                btn.disabled = false;
+                input.focus();
+            }
+        });
+
+        addMessage('bot', 'Здравствуйте! Задайте вопрос по книге «Software Architecture with Kotlin»: архитектурные стили, Kotlin, масштабируемость и проектирование ПО.');
+    </script>
+</body>
+</html>
